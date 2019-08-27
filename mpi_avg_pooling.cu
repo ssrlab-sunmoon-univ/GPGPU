@@ -175,7 +175,7 @@ int main(int argc, char** argv)
         print(result, pooled_h, pooled_w);
     }
 
-    printf("rank = %d time %.4f\n", myrank,result_time)
+    printf("rank = %d time %.4f\n", myrank,result_time);
     
     free(input);
     free(result);
