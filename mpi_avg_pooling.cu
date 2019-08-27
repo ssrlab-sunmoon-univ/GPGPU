@@ -94,12 +94,17 @@ int main(int argc, char** argv)
     float* slave_result = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
 	float* gpu_output_data;
     float* gpu_input;
+
+    clock_t start, end;
+    float result_time = 0;
     
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &procs);
 
     Init_input(input, input_h_size, input_w_size, 10);
+
+    start = clock();
 
     if(myrank == 0)
     {
@@ -161,11 +166,16 @@ int main(int argc, char** argv)
         MPI_Send(slave_result, pooled_h * pooled_w, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
     }
     cudaDeviceSynchronize();
+    end = clock();
+
+    result_time = (float)(end-start)/CLOCKS_PER_SEC;
 
     if(myrank == 0)
     {
         print(result, pooled_h, pooled_w);
     }
+
+    printf("rank = %d time %.4f\n", myrank,result_time)
     
     free(input);
     free(result);
