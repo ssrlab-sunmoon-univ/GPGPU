@@ -78,12 +78,12 @@ int main(int argc, char** argv)
     int offset;
     int before_offset = 0;
 
-	int input_h_size = 16;
-	int input_w_size = 16;
+	int input_h_size = 1024;
+	int input_w_size = 1024;
 	int pool_w_size = 2;
     int pool_h_size = 2;
-    int pool_w_stride = 2;
-    int pool_h_stride = 2;
+    int pool_w_stride = 12;
+    int pool_h_stride = 12;
 	
 	int pooled_h = ((input_h_size - pool_h_size) / pool_h_stride) + 1;
     int pooled_w = ((input_w_size - pool_w_size) / pool_w_stride) + 1;	
@@ -106,10 +106,10 @@ int main(int argc, char** argv)
 
     start = clock();
 
-    if(myrank == 0)
-    {
-        print(input, input_h_size, input_w_size);
-    }
+    // if(myrank == 0)
+    // {
+    //     print(input, input_h_size, input_w_size);
+    // }
 
 	cudaMalloc((void**)&gpu_input, sizeof(float) * input_h_size * input_w_size);
     cudaMalloc((void**)&gpu_output_data, sizeof(float) * pooled_h * pooled_w);
@@ -170,10 +170,10 @@ int main(int argc, char** argv)
 
     result_time = (float)(end-start)/CLOCKS_PER_SEC;
 
-    if(myrank == 0)
-    {
-        print(result, pooled_h, pooled_w);
-    }
+    // if(myrank == 0)
+    // {
+    //     print(result, pooled_h, pooled_w);                                                      
+    // }
 
     printf("rank = %d time %.4f\n", myrank,result_time);
     
