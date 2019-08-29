@@ -1,5 +1,3 @@
-//offset 부분이랑 width, height 부분 바꿔주기
-
 #include<stdio.h>
 #include<stdlib.h>
 #include<iostream>
@@ -78,21 +76,21 @@ int main(int argc, char** argv)
     int offset;
     int before_offset = 0;
 
-	int input_h_size = 1024;
-	int input_w_size = 1024;
-	int pool_w_size = 2;
-    int pool_h_size = 2;
-    int pool_w_stride = 12;
-    int pool_h_stride = 12;
+    int input_h_size = 8192;
+    int input_w_size = 8192;
+    int pool_w_size = 16;
+    int pool_h_size = 16;
+    int pool_w_stride = 1;
+    int pool_h_stride = 1;
 	
-	int pooled_h = ((input_h_size - pool_h_size) / pool_h_stride) + 1;
+    int pooled_h = ((input_h_size - pool_h_size) / pool_h_stride) + 1;
     int pooled_w = ((input_w_size - pool_w_size) / pool_w_stride) + 1;	
 
-	float* input = (float*)malloc(sizeof(float) * input_h_size * input_w_size);
+    float* input = (float*)malloc(sizeof(float) * input_h_size * input_w_size);
     float* result = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
     float* slave_input = (float*)malloc(sizeof(float) * input_h_size * input_w_size);
     float* slave_result = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
-	float* gpu_output_data;
+    float* gpu_output_data;
     float* gpu_input;
 
     clock_t start, end;
@@ -104,16 +102,14 @@ int main(int argc, char** argv)
 
     Init_input(input, input_h_size, input_w_size, 10);
 
-    start = clock();
-
     // if(myrank == 0)
     // {
     //     print(input, input_h_size, input_w_size);
     // }
 
-	cudaMalloc((void**)&gpu_input, sizeof(float) * input_h_size * input_w_size);
+    cudaMalloc((void**)&gpu_input, sizeof(float) * input_h_size * input_w_size);
     cudaMalloc((void**)&gpu_output_data, sizeof(float) * pooled_h * pooled_w);
-    
+
     if(myrank == 0)
     {
         int width = pooled_w;
@@ -127,7 +123,10 @@ int main(int argc, char** argv)
         cudaMemcpy(gpu_input, input, sizeof(float) * input_h_size * input_w_size, cudaMemcpyHostToDevice);
 
         dim3 dimGrid(pooled_h, pooled_w);
-	    avg_pooling<<<dimGrid,1>>>(gpu_input, gpu_output_data, input_h_size, input_w_size, pool_h_size, pool_w_size, pool_h_stride, pool_w_stride, width, before_height, height);
+
+        start = clock();
+        
+        avg_pooling<<<dimGrid,1>>>(gpu_input, gpu_output_data, input_h_size, input_w_size, pool_h_size, pool_w_size, pool_h_stride, pool_w_stride, width, before_height, height);
         cudaDeviceSynchronize();
 
         cudaMemcpy(result, gpu_output_data, sizeof(float) * pooled_h * pooled_w, cudaMemcpyDeviceToHost);
@@ -146,6 +145,7 @@ int main(int argc, char** argv)
                 }
             }
         }
+        end = clock();
     }
     else if(myrank > 0)
     {
@@ -165,24 +165,22 @@ int main(int argc, char** argv)
 
         MPI_Send(slave_result, pooled_h * pooled_w, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
     }
-    cudaDeviceSynchronize();
-    end = clock();
-
     result_time = (float)(end-start)/CLOCKS_PER_SEC;
 
-    // if(myrank == 0)
-    // {
-    //     print(result, pooled_h, pooled_w);                                                      
-    // }
+    if(myrank == 0)
+    {
+        //print(result, pooled_h, pooled_w);
+        printf("rank = %d time %.4f\n", myrank,result_time);                                                
+    }
 
-    printf("rank = %d time %.4f\n", myrank,result_time);
+    
     
     free(input);
     free(result);
     free(slave_input);
     free(slave_result);
     
-	cudaFree(gpu_output_data);
+    cudaFree(gpu_output_data);
     cudaFree(gpu_input);
 
     MPI_Finalize();
