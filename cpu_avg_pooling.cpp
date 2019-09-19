@@ -77,20 +77,21 @@ void print(float* data, int h_size, int w_size)
 
 int main(int argc, char** argv)
 {
-        int start = 0;
-        int end = 0;
-        float result_time = 0;
-
         int procs, myrank;
         int offset;
         int before_offset;
 
-        int input_h_size = 512;
-	int input_w_size = 512;
-	int pool_w_size = 2;
-        int pool_h_size = 2;
-        int pool_w_stride = 2;
-        int pool_h_stride = 2;
+        clock_t start, end;
+        clock_t start2, end2;
+        float result_time = 0;
+        float result_time2 = 0;
+
+        int input_h_size = 4096;
+	int input_w_size = 4096;
+	int pool_w_size = 4;
+        int pool_h_size = 4;
+        int pool_w_stride = 1;
+        int pool_h_stride = 1;
 	
 	int pooled_h = ((input_h_size - pool_h_size) / pool_h_stride) + 1;
         int pooled_w = ((input_w_size - pool_w_size) / pool_w_stride) + 1;	
@@ -106,8 +107,6 @@ int main(int argc, char** argv)
 	
 	Init_input(cpu_input, input_h_size, input_w_size, 10);
 
-        start = clock();
-
         if(myrank == 0)
         {
                 int width = pooled_w;
@@ -118,7 +117,27 @@ int main(int argc, char** argv)
                 {
                         MPI_Send(cpu_input, input_h_size * input_w_size, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
                 }
+
+                start = clock();
+
 	        cpu_avg_pooling(cpu_input, cpu_output_data, input_h_size, input_w_size, pool_h_size, pool_w_size, pool_h_stride, pool_w_stride, width, before_height, height);
+
+                offset = (pooled_h / procs);
+
+                for(int i = 1; i < procs; i++)
+                {
+                        MPI_Recv(slave_output_data, pooled_h * pooled_w, MPI_FLOAT, i, 1, MPI_COMM_WORLD, &status);
+                        before_offset = offset;
+                        offset += (pooled_h / procs);
+                        for(int h = before_offset; h < offset; h++)
+                        {
+                                for(int w = 0; w < pooled_h; w++)
+                                {
+                                        cpu_output_data[(h * pooled_h + w)] = cpu_output_data[(h * pooled_h + w)] + slave_output_data[(h * pooled_h + w)];
+                                }
+                        }
+                }
+                end = clock();
         }
         else if(myrank > 0)
         {
@@ -129,14 +148,15 @@ int main(int argc, char** argv)
                 MPI_Recv(slave_input, input_h_size * input_w_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &status);
 
                 cpu_avg_pooling(cpu_input, cpu_output_data, input_h_size, input_w_size, pool_h_size, pool_w_size, pool_h_stride, pool_w_stride, width, before_height, height);
-
                 MPI_Send(slave_output_data, pooled_h * pooled_w, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
-        }
-        end = clock();
+      	}
+        result_time = (float)(end - start) / CLOCKS_PER_SEC;	
+        
 
-        result_time = (float)(end-start)/CLOCKS_PER_SEC;
-	
-        printf("rank = %d time %.4f\n", myrank,result_time);
+        if(myrank == 0)
+        {
+                printf("time => %.4f\n", result_time);
+        }
 
 	free(cpu_input);
 	free(cpu_output_data);
